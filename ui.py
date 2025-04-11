@@ -1,24 +1,19 @@
 # ui.py
 """
-Handles user interface elements like displaying results.
+Handles formatting results for display.
 """
+from typing import List
 
-def display_code_blocks(code_blocks: list[str]):
+def format_code_blocks_for_display(code_blocks: List[str]) -> str:
     """
-    Displays the extracted code blocks to the user, one by one.
-
-    Args:
-        code_blocks: A list of strings, each a code block.
+    Formats the extracted code blocks into a single string for display.
+    # ... (implementation unchanged from previous DI example) ...
     """
     if not code_blocks:
-        print("\nNo executable code blocks found in the response.")
-        return
-
-    print(f"\nFound {len(code_blocks)} code block(s):")
+        return "\nNo executable code blocks found in the response."
+    output_parts = [f"\nFound {len(code_blocks)} code block(s):"]
     for i, block in enumerate(code_blocks):
-        print(f"\n--- Code Block {i+1} ---")
-        print(block)
-        print("----------------------")
-        # Optional: Add interaction for running commands later
-        # if i < len(code_blocks) - 1:
-        #     input("Press Enter to view the next code block...")
+        output_parts.append(f"\n--- Code Block {i+1} ---")
+        output_parts.append(block)
+        output_parts.append("----------------------")
+    return "\n".join(output_parts)
