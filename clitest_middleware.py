@@ -1,4 +1,4 @@
-# clitest_client.py
+# clitest_middleware.py
 """
 Defines the command-line interface using Click.
 Invokes the workflow directly.
