@@ -52,9 +52,7 @@ def _get_prompt(product: str, operation: str, mode: str, message: Optional[str])
     else:
         # 2. Fallback to mode-based templates
         print(f"Info: No specific prompt '{specific_prompt_name}' found, using mode '{mode}'.")
-        if mode == 'execute':
-            base_template = llm_prompt.EXECUTE
-        elif mode == 'fix':
+        if mode == 'fix':
             base_template = llm_prompt.FIX
             # For FIX mode, we insert the message/context *into* the template
             context = message if message else "No specific error details provided."
