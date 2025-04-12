@@ -5,7 +5,7 @@ config retrieval, chat execution, result display.
 """
 import sys
 import re # Needed for cleaning keys
-from typing import List, Optional, Dict
+from typing import Optional
 
 # Direct imports of dependencies
 import llm_prompt       # Import the prompt components/templates
