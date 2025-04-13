@@ -96,7 +96,7 @@ To install the package using the installer script, follow these steps:
 * SPLUNK_ACCESS_TOKEN: This is the base64-encoded access token for authenticating data ingest requests. Your access token needs to have the ingest authorization scope. See Create and manage organization access tokens using Splunk Observability Cloud.
 
 ```powershell
-& {Set-ExecutionPolicy Bypass -Scope Process -Force; $script = ((New-Object System.Net.WebClient).DownloadString('https://dl.signalfx.com/splunk-otel-collector.ps1')); $params = @{access_token = "SPLUNK_ACCESS_TOKEN"; realm = "SPLUNK_REALM"}; Invoke-Command -ScriptBlock ([scriptblock]::Create(". {$script} $(&{$args} @params)"))}
+& {{Set-ExecutionPolicy Bypass -Scope Process -Force; $script = ((New-Object System.Net.WebClient).DownloadString('[https://dl.signalfx.com/splunk-otel-collector.ps1](https://dl.signalfx.com/splunk-otel-collector.ps1)')); $params = @{{access_token = "SPLUNK_ACCESS_TOKEN"; realm = "SPLUNK_REALM"}}; Invoke-Command -ScriptBlock ([scriptblock]::Create(". {{$script}} $(&{{$args}} @params)"))}}
 ```
 
 If you need to activate TLS in PowerShell, use the command:
