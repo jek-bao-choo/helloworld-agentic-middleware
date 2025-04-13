@@ -10,7 +10,6 @@ from typing import Optional
 # Direct import of the main workflow function
 import llm_workflow
 import resp_fmt
-import ui
 
 @click.command()
 @click.option('--product', required=True, help='The target product (e.g., Splunk OpenTelemetry Collector, curl).')
@@ -43,7 +42,7 @@ def main_command(product: str, operation: str, target: str, mode: str, msg: Opti
         code_blocks = resp_fmt.extract_code_blocks(full_response)
 
         # 2. Format the extracted blocks for display
-        display_output = ui.format_code_blocks_for_display(code_blocks)
+        display_output = resp_fmt.format_code_blocks_for_display(code_blocks)
 
         # 3. Print the formatted output
         click.echo(display_output)

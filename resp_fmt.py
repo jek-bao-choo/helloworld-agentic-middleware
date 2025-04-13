@@ -4,7 +4,7 @@ Formats the response from the chat model, extracting code blocks
 (both triple-backtick fenced blocks and single-backtick inline code).
 """
 import re
-import sys # Added for debug print if needed
+from typing import List # <<< Ensure List is imported
 
 def extract_code_blocks(response_text: str) -> list[str]:
     """
@@ -45,3 +45,28 @@ def extract_code_blocks(response_text: str) -> list[str]:
 
 
     return formatted_blocks
+
+def format_code_blocks_for_display(code_blocks: List[str]) -> str:
+    """
+    Formats the extracted code blocks into a single string for display.
+
+    Args:
+        code_blocks: A list of strings, each being an extracted code block.
+
+    Returns:
+        A formatted string ready for printing, or a message if no blocks were found.
+    """
+    if not code_blocks:
+        return "\nNo executable code blocks found in the response."
+    # Changed message slightly for clarity
+    output_parts = [f"\nFound {len(code_blocks)} code block(s) in the response:"]
+    for i, block in enumerate(code_blocks):
+        output_parts.append(f"\n--- Code Block {i+1} ---")
+        # Optionally remove the outer backticks/language identifier for cleaner display
+        # block_content = re.sub(r"^```(\w+)?\s*\n?|\n?\s*```$", "", block, flags=re.DOTALL)
+        # block_content = block_content.strip('`') # For single ticks
+        # output_parts.append(block_content)
+        # OR keep the original block with backticks:
+        output_parts.append(block)
+        output_parts.append("----------------------")
+    return "\n".join(output_parts)
