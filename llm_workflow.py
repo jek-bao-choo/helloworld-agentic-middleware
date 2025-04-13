@@ -16,31 +16,54 @@ from local_server_manager import LocalServerManager # Needed to get port for con
 # Instantiate manager once
 _server_manager = LocalServerManager()
 
-# --- Prompt Generation (Simplified - Convention over Configuration) ---
+# --- Helper Function ---
 def _clean_key_part(part: str) -> str:
-    """Cleans string for use in prompt variable lookup (uppercase, replace non-alphanum with _)."""
+    """Cleans string for use in dictionary keys (uppercase, replace non-alphanum with _)."""
     part = part.strip().upper()
     part = re.sub(r'\W+', '_', part) # Replace one or more non-alphanumeric with _
     part = re.sub(r'_+', '_', part)   # Collapse multiple underscores
     part = part.strip('_')          # Remove leading/trailing underscores
     return part
 
-def _get_prompt(product: str, operation: str, mode: str, msg: Optional[str]) -> Optional[str]:
+# --- Prompt Mapping Definition ---
+# Define cleaned keys for operations and products
+INSTALL = _clean_key_part("install")
+UNINSTALL = _clean_key_part("uninstall")
+UPGRADE = _clean_key_part("upgrade") # Example: Add if needed
+CONFIGURE = _clean_key_part("configure") # Example: Add if needed
+
+CURL = _clean_key_part("curl")
+SPLUNK_OTEL = _clean_key_part("splunk-otel-collector")
+# Add other products as needed:
+# SPLUNK_OTEL_CHART = _clean_key_part("splunk-otel-collector-chart")
+# DATADOG_AGENT = _clean_key_part("datadog-agent")
+# GRAFANA_AGENT = _clean_key_part("grafana-agent")
+
+# Map (OPERATION, PRODUCT) tuples to specific prompt variables for 'execute' mode
+# Only add entries here if a specific prompt exists in llm_prompt.py
+EXECUTE_PROMPT_MAP = {
+    (INSTALL, CURL): llm_prompt.INSTALL_CURL,
+    (INSTALL, SPLUNK_OTEL): llm_prompt.INSTALL_SPLUNK_OTEL_COLLECTOR,
+    (UNINSTALL, SPLUNK_OTEL): llm_prompt.UNINSTALL_SPLUNK_OTEL_COLLECTOR,
+    # Add other specific combinations here, mapping to variables in llm_prompt.py
+    # e.g., (CONFIGURE, SPLUNK_OTEL): llm_prompt.CONFIGURE_SPLUNK_OTEL_COLLECTOR,
+}
+
+def _get_prompt(product: str, operation: str, mode: str, msg: Optional[str]) -> Optional[str]: # mode is now str
     """
-    Gets the final prompt string based on mode, product, and operation.
+    Gets the final prompt string based on mode, product, and operation using dictionary mapping.
     1. Handles 'fix' and 'chat' modes directly using specific templates.
-    2. For 'execute' mode, tries OPERATION_PRODUCT specific prompt first.
-    3. Falls back to CHAT template if no specific prompt found for 'execute'.
+    2. For 'execute' mode, looks up (operation, product) in EXECUTE_PROMPT_MAP.
+    3. Falls back to CHAT template if no specific mapping found for 'execute'.
     4. Formats the chosen template with product, operation, mode, and msg.
     """
-    # Use provided msg or a default string if None
-    msg_content = msg if msg else "N/A" # Renamed variable for clarity inside function
-
-    # Prepare display versions (original case)
+    prompt_template: Optional[str] = None
+    prompt_name: str = "N/A" # For logging purposes
+    msg_content = msg if msg else "N/A"
     product_display = product.strip()
     operation_display = operation.strip()
 
-    # 1. Handle 'fix' and 'chat' modes directly
+    # 1. Handle explicit modes 'fix' and 'chat'
     if mode == 'fix':
         prompt_template = llm_prompt.FIX
         prompt_name = "FIX template"
@@ -49,49 +72,48 @@ def _get_prompt(product: str, operation: str, mode: str, msg: Optional[str]) -> 
         prompt_template = llm_prompt.CHAT
         prompt_name = "CHAT template"
         print(f"Info: Using mode '{mode}'. Selected prompt: {prompt_name}")
-
-    # 2. Handle 'execute' mode (default)
-    else:
+    # 2. Handle 'execute' mode
+    else: # This block now only runs if mode is 'execute' (or unexpected, though Click prevents that)
+        # Ensure mode is treated as execute if somehow it wasn't fix/chat
+        # This check is arguably less critical now Click enforces choices, but harmless as a safeguard.
         if mode != 'execute':
-             print(f"Warning: Unknown mode '{mode}'. Defaulting to 'execute' logic.", file=sys.stderr)
-             mode = 'execute' # Treat unknown modes as execute
+             print(f"Warning: Unexpected mode '{mode}' encountered despite Click choices. Processing as 'execute'.", file=sys.stderr)
+             # No need to reassign mode = 'execute', just proceed
 
-        # Try to find specific prompt by OPERATION_PRODUCT convention
         op_key = _clean_key_part(operation)
         prod_key = _clean_key_part(product)
-        specific_prompt_name = f"{op_key}_{prod_key}"
-        specific_prompt = getattr(llm_prompt, specific_prompt_name, None)
+        lookup_key = (op_key, prod_key)
 
-        if specific_prompt:
-            prompt_template = specific_prompt
-            prompt_name = specific_prompt_name
-            print(f"Info: Mode is '{mode}'. Using specific prompt '{prompt_name}'.")
+        # Get from map, default to CHAT if not found using .get()
+        prompt_template = EXECUTE_PROMPT_MAP.get(lookup_key, llm_prompt.CHAT)
+
+        # Update prompt_name for logging based on whether the key was found
+        if lookup_key in EXECUTE_PROMPT_MAP:
+             prompt_name = f"Mapped execute prompt for {operation}/{product}"
         else:
-            # Fallback to CHAT template for execute mode if no specific prompt
-            prompt_template = llm_prompt.CHAT # <<< Fallback to CHAT
-            prompt_name = "CHAT template (fallback for execute)" # <<< Updated log message
-            print(f"Info: Mode is '{mode}'. Specific prompt '{specific_prompt_name}' not found. Using fallback: {prompt_name}.")
+             prompt_name = "CHAT template (fallback for execute)"
+        # Log the mode being handled
+        print(f"Info: Mode is '{mode}'. Selected prompt: {prompt_name}")
 
-    # 4. Format the chosen template
+
+    # 3. Format the chosen template
     if prompt_template:
         try:
-            # Use .format() with msg=msg_content
+            # mode is now always 'execute', 'fix', or 'chat' string
             final_prompt = prompt_template.format(
                 product=product_display,
                 operation=operation_display,
-                mode=mode,
-                msg=msg_content, # Changed key to 'msg'
+                mode=mode, # Pass the mode string directly
+                msg=msg_content,
             )
             return final_prompt
         except KeyError as e:
-            # This might happen if a placeholder exists but wasn't provided in .format() args
             print(f"Error: Prompt template formatting failed for '{prompt_name}'. Missing key: {e}. Template snippet: '{prompt_template[:100]}...'", file=sys.stderr)
             return None
         except Exception as e:
              print(f"Error: Unexpected error formatting prompt '{prompt_name}': {e}", file=sys.stderr)
              return None
     else:
-        # This case should ideally not be reached with the new logic, but is a safeguard
         print(f"Error: Could not determine prompt template for {product}/{operation}/{mode}", file=sys.stderr)
         return None
 

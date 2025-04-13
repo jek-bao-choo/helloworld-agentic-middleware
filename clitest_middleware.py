@@ -18,7 +18,7 @@ import resp_fmt
 @click.option('--target', default='local', type=click.Choice(['local', 'openrouter'], case_sensitive=False),
               help='The target LLM endpoint. Default: local.')
 @click.option('--mode', default='execute', type=click.Choice(['execute', 'fix', 'chat'], case_sensitive=False),
-              help='Interaction mode: execute steps, fix errors, or chat.')
+              help='Interaction mode: execute (default), fix errors, or chat.')
 @click.option('--msg', default=None, type=str,
               help='Optional message (e.g., chat text, error details, OS info).')
 def main_command(product: str, operation: str, target: str, mode: str, msg: Optional[str]):
