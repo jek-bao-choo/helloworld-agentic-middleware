@@ -11,7 +11,6 @@ from typing import Optional
 import llm_prompt       # Import the prompt components/templates
 import llm_config       # For getting configuration
 import chatsend         # Handles the sending process
-import ui               # Handles formatting for final display
 from local_server_manager import LocalServerManager # Needed to get port for config
 
 # Instantiate manager once
@@ -34,9 +33,6 @@ def _get_prompt(product: str, operation: str, mode: str, msg: Optional[str]) -> 
     3. Falls back to CHAT template if no specific prompt found for 'execute'.
     4. Formats the chosen template with product, operation, mode, and msg.
     """
-    prompt_template: Optional[str] = None
-    prompt_name: str = "N/A" # For logging purposes
-
     # Use provided msg or a default string if None
     msg_content = msg if msg else "N/A" # Renamed variable for clarity inside function
 
@@ -127,14 +123,13 @@ def handle_request(
     if not config:
         return None
 
-    # 3. Send Chat Request
-    # Pass the selected_prompt (which now incorporates msg content)
-    code_blocks = chatsend.send_and_process(selected_prompt, target, config)
-    if code_blocks is None:
+    # 3. Send Chat Request and get full response
+    # Changed variable name from code_blocks to full_response
+    full_response = chatsend.send_and_process(selected_prompt, target, config)
+    if full_response is None:
+        # Error message already printed in chatsend
         print("Error: Failed to get response from chat.", file=sys.stderr)
-        return None # Indicate failure
+        return None # Propagate error
 
-    # 4. Format Results for UI
-    display_output = ui.format_code_blocks_for_display(code_blocks)
-
-    return display_output
+    # 4. Return Full Response (UI formatting removed)
+    return full_response # <<< Return the raw response string

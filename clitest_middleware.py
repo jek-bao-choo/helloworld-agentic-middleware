@@ -9,6 +9,8 @@ from typing import Optional
 
 # Direct import of the main workflow function
 import llm_workflow
+import resp_fmt
+import ui
 
 @click.command()
 @click.option('--product', required=True, help='The target product (e.g., Splunk OpenTelemetry Collector, curl).')
@@ -24,8 +26,9 @@ def main_command(product: str, operation: str, target: str, mode: str, msg: Opti
     """
     Agentic Middleware CLI to get assistance for product operations via LLM.
     """
-    # Call the workflow handler, passing the 'msg' variable correctly
-    final_output_string = llm_workflow.handle_request(
+    # Call the workflow handler to get the raw response
+    # Changed variable name from final_output_string to full_response
+    full_response = llm_workflow.handle_request(
         product=product,
         operation=operation,
         target=target,
@@ -34,9 +37,19 @@ def main_command(product: str, operation: str, target: str, mode: str, msg: Opti
     )
 
     # --- Handle Final Output ---
-    if final_output_string is not None:
-        click.echo(final_output_string)
+    if full_response is not None:
+        # --- >>> PROCESS AND FORMAT RESPONSE HERE <<< ---
+        # 1. Extract code blocks from the full response
+        code_blocks = resp_fmt.extract_code_blocks(full_response)
+
+        # 2. Format the extracted blocks for display
+        display_output = ui.format_code_blocks_for_display(code_blocks)
+
+        # 3. Print the formatted output
+        click.echo(display_output)
+        # --- >>> END OF RESPONSE PROCESSING <<< ---
     else:
+        # Error occurred, message likely printed already in lower layers
         click.echo("\nWorkflow completed with errors.", err=True)
         sys.exit(1)
 

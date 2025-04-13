@@ -8,7 +8,6 @@ from typing import List, Optional, Dict, Any
 
 # Direct imports of dependencies
 import llm_interface # Handles actual litellm calls
-import resp_fmt      # Formats the raw response
 from local_server_manager import LocalServerManager # Manages local server
 
 # Lazily instantiated manager (kept internal to this module)
@@ -27,7 +26,7 @@ def send_and_process(
     prompt: str,
     target: str,
     config: Dict[str, Any] # Configuration MUST be provided now
-) -> Optional[List[str]]:
+) -> str | None | Any:
     """
     Sends prompt, checks server, calls LLM interface, processes response.
 
@@ -78,11 +77,13 @@ def send_and_process(
         print(f"\nUnexpected error processing stream in chatsend: {type(e).__name__}: {e}", file=sys.stderr)
         return None
 
-    if not full_response:
+    # 4. Return Full Response (Code block extraction removed)
+    # If the stream was empty but there was no error, return the empty string
+    if not full_response and "Error" not in full_response: # Basic check if error wasn't caught
         print("Warning: No final response content accumulated.", file=sys.stderr)
-        return [] # Return empty list for empty but valid response
+        # Depending on desired behavior, could return "" or None here.
+        # Returning "" seems more appropriate if the LLM just gave no output.
+        return ""
 
-    # 4. Extract Code Blocks (calls resp_fmt)
-    code_blocks = resp_fmt.extract_code_blocks(full_response)
-
-    return code_blocks
+    # Return the accumulated full_response string
+    return full_response # <<< Return the raw string
