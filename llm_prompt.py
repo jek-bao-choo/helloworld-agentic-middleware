@@ -2,37 +2,52 @@
 """
 Stores reusable components, basic templates, and specific prompts.
 Uses triple quotes for easier multiline/XML definition.
+Includes placeholders like {product}, {operation}, {mode}, {msg}.
 """
 
-# --- Basic Templates by Mode (Simplified Names) ---
-# Using triple quotes for easier multiline definitions and XML inclusion
+# --- Basic Templates by Mode ---
+# Using f-string syntax for placeholders ({variable_name})
 FIX = """
-Your task is to propose a fix for an issue encountered while trying to {operation} {product}. Here is the input context:
+Your task is to propose a fix for an issue encountered while trying to {operation} {product}.
+
 <input_context>
+Mode: {mode}
+Operation: {operation}
+Product: {product}
+Error/Context: {msg}
 Operating System: MacOS
-</inpt_context>
+</input_context>
 
 You must place commands in bash code blocks.
 """
 
 CHAT = """
-Your task is to answer questions about {operation} {product} topic. DO NOT answer any question beyond this topic.
+Your task is to answer questions about the topic: {operation} for {product}.
+DO NOT answer any question beyond this topic.
 
 <input_context>
-{msg}
-</inpt_context>
+Mode: {mode}
+Operation: {operation}
+Product: {product}
+Question/Message: {msg}
+</input_context>
 
-You must place commands in bash code blocks if it exists.
+You must place commands in bash code blocks if commands are relevant to the answer.
 """
 
 # --- Specific Prompts (Use Uppercase Convention: OPERATION_PRODUCT) ---
 # These override the general mode templates when matched by llm_workflow.py
 # Using triple quotes allows formatting and potential XML easily.
 INSTALL_CURL = """
-You need to provide a command to check if curl is installed. If it is not installed, you need provide the command to install curl. Here is the input context:
+You need to provide a command to check if curl is installed on MacOS. If it is not installed, provide the command to install curl using Homebrew.
+
 <input_context>
+Mode: {mode}
+Operation: {operation}
+Product: {product}
+Message: {msg}
 Operating System: MacOS
-</inpt_context>
+</input_context>
 
 You must place commands in bash code blocks.
 """
@@ -94,8 +109,20 @@ If you need to activate TLS in PowerShell, use the command:
 You must place commands in bash code blocks.
 """
 
-UNINSTALL_SPLUNK_OTEL_COLLECTOR = """Provide the commands to completely uninstall the Splunk OpenTelemetry Collector from a standard Linux system, including removing configuration and data directories.
-<output_format>Place commands in bash code blocks.</output_format>"""
+UNINSTALL_SPLUNK_OTEL_COLLECTOR = """
+Provide the commands to completely uninstall the Splunk OpenTelemetry Collector from a standard Linux system (adapt for MacOS if significantly different, e.g., launchd services). Include removing configuration and data directories.
+
+<input_context>
+Mode: {mode}
+Operation: {operation}
+Product: {product}
+Message: {msg}
+Operating System: MacOS
+</input_context>
+
+<output_format>Place commands in bash code blocks.</output_format>
+"""
+
 
 # Add more specific prompts here, following the OPERATION_PRODUCT naming convention
 # e.g., CONFIGURE_SPLUNK_OTEL_COLLECTOR = """..."""

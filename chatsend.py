@@ -47,6 +47,13 @@ def send_and_process(
             print("Aborting prompt due to local server issue.")
             return None
 
+    # --- >>> ADD THIS BLOCK TO PRINT THE PROMPT <<< ---
+    # Use standard print, no need for click here
+    print("\n--- Start of Final Prompt for LLM ---")
+    print(prompt)
+    print("--- End of Final Prompt for LLM ---\n")
+    # --- >>> END OF ADDED BLOCK <<< ---
+
     # 2. Prepare Arguments (using provided config)
     # Config lookup is no longer done here
     llm_args = llm_interface.prepare_litellm_args(prompt, config, target)
@@ -55,11 +62,11 @@ def send_and_process(
     full_response = ""
     try:
         response_stream = llm_interface.stream_litellm_response(llm_args, config, target)
-        print("--- Response Stream ---") # Keep progress print
+        print("--- Start of Response Stream ---") # Keep progress print
         for chunk in response_stream:
              print(chunk, end='', flush=True)
              full_response += chunk
-        print("\n--- End of Stream ---")
+        print("\n--- End of Response Stream ---")
 
     except (llm_interface.LLMConnectionError,
             llm_interface.LLMAuthenticationError,

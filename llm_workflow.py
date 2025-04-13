@@ -26,66 +26,78 @@ def _clean_key_part(part: str) -> str:
     part = part.strip('_')          # Remove leading/trailing underscores
     return part
 
-def _get_prompt(product: str, operation: str, mode: str, message: Optional[str]) -> Optional[str]:
+def _get_prompt(product: str, operation: str, mode: str, msg: Optional[str]) -> Optional[str]:
     """
-    Gets the final prompt string:
-    1. Tries to find specific prompt by convention ([OP]_[PRODUCT]) in llm_prompt.
-    2. Falls back to mode-based templates (EXECUTE, FIX, CHAT).
-    3. Appends optional message for 'execute' and 'chat' modes.
+    Gets the final prompt string based on mode, product, and operation.
+    1. Handles 'fix' and 'chat' modes directly using specific templates.
+    2. For 'execute' mode, tries OPERATION_PRODUCT specific prompt first.
+    3. Falls back to CHAT template if no specific prompt found for 'execute'.
+    4. Formats the chosen template with product, operation, mode, and msg.
     """
-    prompt: Optional[str] = None
-    base_template: Optional[str] = None
-    product_display = product.strip() # Keep original case for formatting
+    prompt_template: Optional[str] = None
+    prompt_name: str = "N/A" # For logging purposes
+
+    # Use provided msg or a default string if None
+    msg_content = msg if msg else "N/A" # Renamed variable for clarity inside function
+
+    # Prepare display versions (original case)
+    product_display = product.strip()
     operation_display = operation.strip()
 
-    # 1. Try to find specific prompt by naming convention
-    op_key = _clean_key_part(operation)
-    prod_key = _clean_key_part(product)
-    specific_prompt_name = f"{op_key}_{prod_key}"
+    # 1. Handle 'fix' and 'chat' modes directly
+    if mode == 'fix':
+        prompt_template = llm_prompt.FIX
+        prompt_name = "FIX template"
+        print(f"Info: Using mode '{mode}'. Selected prompt: {prompt_name}")
+    elif mode == 'chat':
+        prompt_template = llm_prompt.CHAT
+        prompt_name = "CHAT template"
+        print(f"Info: Using mode '{mode}'. Selected prompt: {prompt_name}")
 
-    specific_prompt = getattr(llm_prompt, specific_prompt_name, None) # Safely check if attr exists
-
-    if specific_prompt:
-        prompt = specific_prompt
-        print(f"Info: Using specific prompt '{specific_prompt_name}'.")
-        # Specific prompts are assumed to be complete and don't need base formatting
+    # 2. Handle 'execute' mode (default)
     else:
-        # 2. Fallback to mode-based templates
-        print(f"Info: No specific prompt '{specific_prompt_name}' found, using mode '{mode}'.")
-        if mode == 'fix':
-            base_template = llm_prompt.FIX
-            # For FIX mode, we insert the message/context *into* the template
-            context = message if message else "No specific error details provided."
-            try:
-                prompt = base_template.format(product=product_display, operation=operation_display, context=context)
-            except KeyError as e:
-                 print(f"Error: FIX Prompt template formatting failed. Key: {e}. Template: {base_template}", file=sys.stderr)
-                 return None
-            # Prevent appending message again later for FIX mode
-            message = None
-        else: # Default/fallback to CHAT mode
-            if mode != 'chat':
-                print(f"Warning: Unknown mode '{mode}'. Using CHAT prompt template as fallback.", file=sys.stderr)
-            base_template = llm_prompt.CHAT
+        if mode != 'execute':
+             print(f"Warning: Unknown mode '{mode}'. Defaulting to 'execute' logic.", file=sys.stderr)
+             mode = 'execute' # Treat unknown modes as execute
 
-        # Format the base template if not already done (i.e., for EXECUTE/CHAT)
-        if base_template and not prompt:
-            try:
-                prompt = base_template.format(product=product_display, operation=operation_display)
-            except KeyError as e:
-                print(f"Error: Prompt template formatting failed. Key: {e}. Template: {base_template}", file=sys.stderr)
-                return None
+        # Try to find specific prompt by OPERATION_PRODUCT convention
+        op_key = _clean_key_part(operation)
+        prod_key = _clean_key_part(product)
+        specific_prompt_name = f"{op_key}_{prod_key}"
+        specific_prompt = getattr(llm_prompt, specific_prompt_name, None)
 
-    # 3. Append optional message for relevant modes (if not already used in FIX)
-    if prompt and message and mode in ['execute', 'chat']:
-        prompt += f"\n\n--- Additional Context/Message ---\n{message}"
-        print("Info: Appended provided message to prompt.")
+        if specific_prompt:
+            prompt_template = specific_prompt
+            prompt_name = specific_prompt_name
+            print(f"Info: Mode is '{mode}'. Using specific prompt '{prompt_name}'.")
+        else:
+            # Fallback to CHAT template for execute mode if no specific prompt
+            prompt_template = llm_prompt.CHAT # <<< Fallback to CHAT
+            prompt_name = "CHAT template (fallback for execute)" # <<< Updated log message
+            print(f"Info: Mode is '{mode}'. Specific prompt '{specific_prompt_name}' not found. Using fallback: {prompt_name}.")
 
-    if not prompt:
-         print(f"Error: Could not determine prompt for {product}/{operation}/{mode}", file=sys.stderr)
-         return None
-
-    return prompt
+    # 4. Format the chosen template
+    if prompt_template:
+        try:
+            # Use .format() with msg=msg_content
+            final_prompt = prompt_template.format(
+                product=product_display,
+                operation=operation_display,
+                mode=mode,
+                msg=msg_content, # Changed key to 'msg'
+            )
+            return final_prompt
+        except KeyError as e:
+            # This might happen if a placeholder exists but wasn't provided in .format() args
+            print(f"Error: Prompt template formatting failed for '{prompt_name}'. Missing key: {e}. Template snippet: '{prompt_template[:100]}...'", file=sys.stderr)
+            return None
+        except Exception as e:
+             print(f"Error: Unexpected error formatting prompt '{prompt_name}': {e}", file=sys.stderr)
+             return None
+    else:
+        # This case should ideally not be reached with the new logic, but is a safeguard
+        print(f"Error: Could not determine prompt template for {product}/{operation}/{mode}", file=sys.stderr)
+        return None
 
 
 # --- Main Workflow Logic ---
@@ -94,20 +106,20 @@ def handle_request(
     operation: str,
     target: str,
     mode: str,
-    message: Optional[str] # Accept optional message
+    msg: Optional[str] # Changed parameter name to msg
 ) -> Optional[str]:
     """
     Handles the user request: gets prompt, gets config, sends chat, formats result.
     """
-    print(f"Info: Received request for product='{product}', operation='{operation}', target='{target}', mode='{mode}', message='{message is not None}'")
+    # Use 'msg is not None' for logging clarity
+    print(f"Info: Received request for product='{product}', operation='{operation}', target='{target}', mode='{mode}', msg='{msg is not None}'")
 
-    # 1. Get Prompt (using simplified logic)
-    selected_prompt = _get_prompt(product, operation, mode, message)
+    # 1. Get Prompt (using revised logic above, passing msg)
+    selected_prompt = _get_prompt(product, operation, mode, msg) # Pass msg
     if selected_prompt is None:
         return None
 
-    # Optional: Print final prompt for debugging
-    # print(f"\n--- Final Generated Prompt ---\n{selected_prompt}\n----------------------------\n")
+    # Prompt printing is now done in chatsend.py
 
     # 2. Get Configuration
     local_port = _server_manager.get_port()
@@ -116,10 +128,11 @@ def handle_request(
         return None
 
     # 3. Send Chat Request
+    # Pass the selected_prompt (which now incorporates msg content)
     code_blocks = chatsend.send_and_process(selected_prompt, target, config)
     if code_blocks is None:
         print("Error: Failed to get response from chat.", file=sys.stderr)
-        return None
+        return None # Indicate failure
 
     # 4. Format Results for UI
     display_output = ui.format_code_blocks_for_display(code_blocks)

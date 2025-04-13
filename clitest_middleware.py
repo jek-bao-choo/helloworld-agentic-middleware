@@ -24,13 +24,13 @@ def main_command(product: str, operation: str, target: str, mode: str, msg: Opti
     """
     Agentic Middleware CLI to get assistance for product operations via LLM.
     """
-    # Call the workflow handler
+    # Call the workflow handler, passing the 'msg' variable correctly
     final_output_string = llm_workflow.handle_request(
         product=product,
         operation=operation,
         target=target,
-        mode=mode, # Mode will be lowercase due to case_sensitive=False
-        message=msg
+        mode=mode,
+        msg=msg
     )
 
     # --- Handle Final Output ---
